@@ -41,20 +41,15 @@ router.post('/', async (req, res) => {
 });
 
 // Ruta GET /:cid para obtener los productos de un carrito por ID
-router.get('/:cid', async (req, res) => {
-  try {
-    const cartId = req.params.cid;
-    const carts = await getCarts();
-    const cart = carts.find((c) => c.id.toString() === cartId.toString());
-    if (cart) {
-      res.json(cart.products);
-    } else {
-      res.status(404).json({ error: 'Carrito no encontrado' });
+router.get('/', async (req, res) => {
+    try {
+      const carts = await getCarts();
+      res.json(carts);
+    } catch (error) {
+      console.error('Error al obtener la lista de carritos:', error);
+      res.status(500).json({ error: 'Error al obtener la lista de carritos' });
     }
-  } catch (error) {
-    res.status(500).json({ error: 'Error al obtener productos del carrito' });
-  }
-});
+  });
 
 // Ruta POST /:cid/product/:pid para agregar un producto a un carrito por ID
 router.post('/:cid/product/:pid', async (req, res) => {
