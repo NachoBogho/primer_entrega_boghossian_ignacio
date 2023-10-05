@@ -1,44 +1,29 @@
 import express from 'express';
 const router = express.Router();
-import fs from 'fs/promises';
+import ProductManager from '../manager/product_manager.js';
 
-// Función para obtener productos desde el archivo
-const getProducts = async () => {
-  const data = await fs.readFile('productos.json', 'utf-8');
-  return JSON.parse(data);
-};
+const productManager = new ProductManager('productos.json');
 
-// Función para guardar productos en el archivo
-const saveProducts = async (products) => {
-  await fs.writeFile('productos.json', JSON.stringify(products, null, 2), 'utf-8');
-};
-
-// Función para generar un nuevo ID único
-const generateId = (existingItems) => {
-  let newId;
-  do {
-    newId = Math.floor(Math.random() * 1000000);
-  } while (existingItems.some((item) => item.id === newId));
-  return newId;
-};
-
-// Ruta raíz GET para listar todos los productos
 router.get('/', async (req, res) => {
+  const limit = parseInt(req.query.limit);
+
   try {
-    const limit = parseInt(req.query.limit) || undefined;
-    const products = await getProducts();
-    res.json(limit ? products.slice(0, limit) : products);
+    const products = await productManager.getProducts();
+    if (!isNaN(limit)) {
+      res.json(products.slice(0, limit));
+    } else {
+      res.json(products);
+    }
   } catch (error) {
-    res.status(500).json({ error: 'Error al obtener productos' });
+    res.status(500).json({ error: error.message || 'Error al obtener productos' });
   }
 });
 
-// Ruta GET /:pid para obtener un producto por ID
 router.get('/:pid', async (req, res) => {
+  const productId = parseInt(req.params.pid);
+
   try {
-    const productId = req.params.pid;
-    const products = await getProducts();
-    const product = products.find((p) => p.id.toString() === productId.toString());
+    const product = await productManager.getProductById(productId);
     if (product) {
       res.json(product);
     } else {
@@ -49,33 +34,25 @@ router.get('/:pid', async (req, res) => {
   }
 });
 
-// Ruta POST / para agregar un nuevo producto
 router.post('/', async (req, res) => {
+  const newProduct = req.body;
+
   try {
-    const newProduct = req.body;
-    const products = await getProducts();
-    const newProductId = generateId(products);
-    newProduct.id = newProductId;
-    products.push(newProduct);
-    await saveProducts(products);
-    res.json({ message: 'Producto agregado correctamente', newProductId });
+    await productManager.addProduct(newProduct);
+    res.json({ message: 'Producto agregado correctamente', product: newProduct });
   } catch (error) {
     res.status(500).json({ error: 'Error al agregar producto' });
   }
 });
 
-// Ruta PUT /:pid para actualizar un producto por ID
 router.put('/:pid', async (req, res) => {
+  const productId = parseInt(req.params.pid);
+  const updatedProduct = req.body;
+
   try {
-    const productId = req.params.pid;
-    const updatedProduct = req.body;
-    const products = await getProducts();
-    const index = products.findIndex((p) => p.id.toString() === productId.toString());
-    if (index !== -1) {
-      updatedProduct.id = products[index].id;
-      products[index] = updatedProduct;
-      await saveProducts(products);
-      res.json({ message: 'Producto actualizado correctamente' });
+    const success = await productManager.updateProduct(productId, updatedProduct);
+    if (success) {
+      res.json({ message: 'Producto actualizado correctamente', product: updatedProduct });
     } else {
       res.status(404).json({ error: 'Producto no encontrado' });
     }
@@ -84,14 +61,16 @@ router.put('/:pid', async (req, res) => {
   }
 });
 
-// Ruta DELETE /:pid para eliminar un producto por ID
 router.delete('/:pid', async (req, res) => {
+  const productId = parseInt(req.params.pid);
+
   try {
-    const productId = req.params.pid;
-    const products = await getProducts();
-    const updatedProducts = products.filter((p) => p.id.toString() !== productId.toString());
-    await saveProducts(updatedProducts);
-    res.json({ message: 'Producto eliminado correctamente' });
+    const success = await productManager.deleteProduct(productId);
+    if (success) {
+      res.json({ message: 'Producto eliminado correctamente', productId });
+    } else {
+      res.status(404).json({ error: 'Producto no encontrado' });
+    }
   } catch (error) {
     res.status(500).json({ error: 'Error al eliminar producto' });
   }
